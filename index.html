@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KindleTools</title>
+<style>
+/* Built for e-ink: pure black on white, no animation, no flexbox/grid, big tap targets */
+html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+body { font-family: Georgia, "Times New Roman", serif; font-size: 22px; line-height: 1.4; padding: 14px; }
+h1 { font-size: 38px; margin: 0 0 4px 0; border-bottom: 4px solid #000; padding-bottom: 6px; }
+h2 { font-size: 28px; margin: 12px 0 10px 0; }
+p { margin: 6px 0 12px 0; }
+.sub { font-size: 18px; margin-bottom: 14px; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: 0; }
+button, select, input, textarea { font-family: Georgia, serif; font-size: 22px; color: #000; background: #fff; border: 3px solid #000; padding: 12px 8px; margin: 0; }
+button { cursor: pointer; font-weight: bold; }
+button:active { background: #000; color: #fff; }
+.menu td { width: 33%; padding: 3px; }
+.menu button { width: 100%; padding: 18px 4px; }
+.menu button.on { background: #000; color: #fff; }
+.tool { display: none; border: 3px solid #000; padding: 12px; margin-top: 12px; }
+.tool.show { display: block; }
+.nojs .tool { display: block; margin-bottom: 14px; }
+.big { font-size: 52px; text-align: center; border: 3px solid #000; padding: 10px 6px; margin-bottom: 10px; word-wrap: break-word; }
+.keys td { width: 25%; padding: 3px; }
+.keys button { width: 100%; padding: 20px 0; font-size: 28px; }
+.row button { margin: 3px 3px 3px 0; padding: 16px 14px; }
+input[type=text], input[type=number], select, textarea { width: 100%; box-sizing: border-box; -webkit-box-sizing: border-box; margin-bottom: 8px; }
+textarea { height: 260px; }
+.note { font-size: 17px; margin-top: 10px; border-top: 2px solid #000; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<h1>KindleTools</h1>
+<div class="sub">Small tools for the Kindle browser. Black and white, no flashing.</div>
+
+<table class="menu"><tr>
+<td><button id="m-clock" onclick="show('clock')">Clock</button></td>
+<td><button id="m-calc" onclick="show('calc')">Calculator</button></td>
+<td><button id="m-conv" onclick="show('conv')">Converter</button></td>
+</tr><tr>
+<td><button id="m-timer" onclick="show('timer')">Timer</button></td>
+<td><button id="m-notes" onclick="show('notes')">Notes</button></td>
+<td><button id="m-tip" onclick="show('tip')">Tip split</button></td>
+</tr><tr>
+<td><button id="m-txt" onclick="show('txt')">Text maker</button></td>
+<td><button id="m-todo" onclick="show('todo')">To-do</button></td>
+<td><button id="m-dice" onclick="show('dice')">Dice and coin</button></td>
+</tr><tr>
+<td><button id="m-pct" onclick="show('pct')">Percent</button></td>
+<td><button id="m-date" onclick="show('date')">Dates</button></td>
+<td><button id="m-pw" onclick="show('pw')">Passwords</button></td>
+</tr></table>
+
+<!-- CLOCK -->
+<div class="tool" id="clock">
+<h2>Clock</h2>
+<div class="big" id="clk">--:--</div>
+<div class="big" style="font-size:26px" id="clkdate"></div>
+<button onclick="tickClock()">Refresh</button>
+<div class="note">Updates itself every 30 seconds to limit screen flashing.</div>
+</div>
+
+<!-- CALCULATOR -->
+<div class="tool" id="calc">
+<h2>Calculator</h2>
+<div class="big" id="disp">0</div>
+<table class="keys">
+<tr><td><button onclick="k('7')">7</button></td><td><button onclick="k('8')">8</button></td><td><button onclick="k('9')">9</button></td><td><button onclick="k('/')">&divide;</button></td></tr>
+<tr><td><button onclick="k('4')">4</button></td><td><button onclick="k('5')">5</button></td><td><button onclick="k('6')">6</button></td><td><button onclick="k('*')">&times;</button></td></tr>
+<tr><td><button onclick="k('1')">1</button></td><td><button onclick="k('2')">2</button></td><td><button onclick="k('3')">3</button></td><td><button onclick="k('-')">&minus;</button></td></tr>
+<tr><td><button onclick="k('0')">0</button></td><td><button onclick="k('.')">.</button></td><td><button onclick="calcEq()">=</button></td><td><button onclick="k('+')">+</button></td></tr>
+<tr><td><button onclick="k('(')">(</button></td><td><button onclick="k(')')">)</button></td><td><button onclick="calcBack()">Del</button></td><td><button onclick="calcClear()">Clear</button></td></tr>
+</table>
+</div>
+
+<!-- CONVERTER -->
+<div class="tool" id="conv">
+<h2>Converter</h2>
+<select id="cat" onchange="fillUnits()">
+<option value="length">Length</option>
+<option value="weight">Weight</option>
+<option value="volume">Volume</option>
+<option value="temp">Temperature</option>
+</select>
+<input type="number" id="cv" value="1" step="any">
+<select id="cfrom"></select>
+<select id="cto"></select>
+<button onclick="convert()">Convert</button>
+<div class="big" style="margin-top:10px;font-size:34px" id="cout">&nbsp;</div>
+</div>
+
+<!-- TIMER -->
+<div class="tool" id="timer">
+<h2>Timer</h2>
+<div class="big" id="tdisp">00:00</div>
+<table><tr>
+<td style="width:50%;padding-right:4px"><input type="number" id="tmin" value="5" min="0"></td>
+<td style="padding-left:4px"><div style="padding:12px 0">minutes</div></td>
+</tr></table>
+<div class="row">
+<button onclick="tStart()">Start</button>
+<button onclick="tStop()">Pause</button>
+<button onclick="tReset()">Reset</button>
+</div>
+<h2>Stopwatch</h2>
+<div class="big" id="sdisp">00:00</div>
+<div class="row">
+<button onclick="sStart()">Start</button>
+<button onclick="sStop()">Stop</button>
+<button onclick="sReset()">Reset</button>
+</div>
+<div class="note">Screen redraws once a second. The alarm shows a message when time is up.</div>
+</div>
+
+<!-- NOTES -->
+<div class="tool" id="notes">
+<h2>Notes</h2>
+<textarea id="pad" placeholder="Type here..."></textarea>
+<div class="row">
+<button onclick="saveNote()">Save</button>
+<button onclick="clearNote()">Erase</button>
+</div>
+<div id="nstat" class="note">Notes stay in this browser only.</div>
+</div>
+
+<!-- TIP SPLIT -->
+<div class="tool" id="tip">
+<h2>Tip split</h2>
+<input type="number" id="bill" placeholder="Bill amount" step="any">
+<input type="number" id="pct" value="15" step="any">
+<input type="number" id="ppl" value="2" min="1">
+<button onclick="tipCalc()">Work it out</button>
+<div class="big" style="margin-top:10px;font-size:30px" id="tout">&nbsp;</div>
+<div class="note">Fields: bill, tip percent, number of people.</div>
+</div>
+
+<!-- TEXT MAKER -->
+<div class="tool" id="txt">
+<h2>Text maker</h2>
+<input type="text" id="fname" placeholder="File name (no .txt needed)">
+<textarea id="txt-body" placeholder="Write your text file here..." onkeyup="txtCount()"></textarea>
+<div id="tcount" class="note" style="border-top:0;margin:0 0 8px 0">0 words, 0 characters</div>
+<div class="row">
+<button onclick="dlTxt()">Download .txt</button>
+<button onclick="openTxt()">Open as plain text</button>
+<button onclick="txtClear()">Clear</button>
+</div>
+<div id="tstat" class="note">If Download does nothing, use Open as plain text. Some Kindles block file downloads from web pages.</div>
+</div>
+
+<!-- TO-DO -->
+<div class="tool" id="todo">
+<h2>To-do</h2>
+<input type="text" id="titem" placeholder="New task">
+<div class="row">
+<button onclick="todoAdd()">Add task</button>
+<button onclick="todoClean()">Remove done</button>
+</div>
+<div id="tlist"></div>
+<div class="note">Tap a task to mark it done. Saved in this browser.</div>
+</div>
+
+<!-- DICE AND COIN -->
+<div class="tool" id="dice">
+<h2>Dice and coin</h2>
+<table><tr>
+<td style="width:40%;padding-right:4px"><input type="number" id="dn" value="2" min="1" max="10"></td>
+<td style="padding-left:4px"><select id="ds"><option value="4">d4</option><option value="6" selected>d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20">d20</option><option value="100">d100</option></select></td>
+</tr></table>
+<div class="row"><button onclick="rollDice()">Roll</button><button onclick="flipCoin()">Flip coin</button></div>
+<div class="big" style="font-size:34px" id="dout">&nbsp;</div>
+</div>
+
+<!-- PERCENT -->
+<div class="tool" id="pct">
+<h2>Percent</h2>
+<input type="number" id="pa" placeholder="First number (A)" step="any">
+<input type="number" id="pb" placeholder="Second number (B)" step="any">
+<div class="row">
+<button onclick="pctOf()">A% of B</button>
+<button onclick="pctIs()">A is what % of B</button>
+<button onclick="pctChg()">Change A to B</button>
+</div>
+<div class="big" style="font-size:30px" id="pout">&nbsp;</div>
+</div>
+
+<!-- DATES -->
+<div class="tool" id="date">
+<h2>Dates</h2>
+<input type="text" id="d1" placeholder="Start date: YYYY-MM-DD">
+<input type="text" id="d2" placeholder="End date: YYYY-MM-DD">
+<div class="row"><button onclick="dateDiff()">Days between</button><button onclick="dateToday()">Use today as start</button></div>
+<div class="big" style="font-size:30px" id="dout2">&nbsp;</div>
+<div class="note">Type dates with the year first, for example 2026-12-25.</div>
+</div>
+
+<!-- PASSWORDS -->
+<div class="tool" id="pw">
+<h2>Passwords</h2>
+<table><tr>
+<td style="width:40%;padding-right:4px"><input type="number" id="plen" value="16" min="6" max="64"></td>
+<td style="padding-left:4px"><div style="padding:12px 0">characters</div></td>
+</tr></table>
+<select id="psym"><option value="1">Letters, numbers and symbols</option><option value="0">Letters and numbers only</option></select>
+<button onclick="makePw()">Generate</button>
+<div class="big" style="font-size:30px;margin-top:10px" id="pwout">&nbsp;</div>
+<div class="note">Made in your browser and never sent anywhere.</div>
+</div>
+
+<script>
+/* ES5 only: Kindle's browser is an old WebKit */
+var current = '';
+var tools = ['clock', 'calc', 'conv', 'timer', 'notes', 'tip', 'txt', 'todo', 'dice', 'pct', 'date', 'pw'];
+
+function el(id) { return document.getElementById(id); }
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+function show(name) {
+  for (var i = 0; i < tools.length; i++) {
+    el(tools[i]).className = 'tool' + (tools[i] === name ? ' show' : '');
+    el('m-' + tools[i]).className = (tools[i] === name ? 'on' : '');
+  }
+  current = name;
+  if (name === 'clock') { tickClock(); }
+  if (name === 'notes') { loadNote(); }
+  if (name === 'todo') { todoDraw(); }
+}
+
+/* Clock */
+var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function tickClock() {
+  var d = new Date();
+  el('clk').innerHTML = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  el('clkdate').innerHTML = days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+}
+setInterval(function () { if (current === 'clock') { tickClock(); } }, 30000);
+
+/* Calculator */
+var expr = '';
+function showExpr() { el('disp').innerHTML = expr === '' ? '0' : expr.replace(/\*/g, '&times;').replace(/\//g, '&divide;'); }
+function k(c) { expr += c; showExpr(); }
+function calcBack() { expr = expr.substring(0, expr.length - 1); showExpr(); }
+function calcClear() { expr = ''; showExpr(); }
+function calcEq() {
+  if (expr === '') { return; }
+  if (!/^[0-9+\-*\/.() ]+$/.test(expr)) { el('disp').innerHTML = 'Error'; expr = ''; return; }
+  try {
+    var r = eval(expr);
+    if (typeof r !== 'number' || !isFinite(r)) { throw 1; }
+    r = Math.round(r * 1000000000) / 1000000000;
+    expr = String(r);
+    showExpr();
+  } catch (e) {
+    el('disp').innerHTML = 'Error';
+    expr = '';
+  }
+}
+
+/* Converter */
+var units = {
+  length: { 'Millimetres': 0.001, 'Centimetres': 0.01, 'Metres': 1, 'Kilometres': 1000, 'Inches': 0.0254, 'Feet': 0.3048, 'Yards': 0.9144, 'Miles': 1609.344 },
+  weight: { 'Grams': 0.001, 'Kilograms': 1, 'Ounces': 0.028349523, 'Pounds': 0.45359237, 'Stone': 6.35029318 },
+  volume: { 'Millilitres': 0.001, 'Litres': 1, 'Teaspoons': 0.00492892, 'Tablespoons': 0.0147868, 'US cups': 0.236588, 'UK pints': 0.568261, 'US gallons': 3.78541 },
+  temp: { 'Celsius': 1, 'Fahrenheit': 1, 'Kelvin': 1 }
+};
+function fillUnits() {
+  var cat = el('cat').value, a = el('cfrom'), b = el('cto');
+  a.innerHTML = ''; b.innerHTML = '';
+  var i = 0;
+  for (var u in units[cat]) {
+    if (units[cat].hasOwnProperty(u)) {
+      a.options[a.options.length] = new Option(u, u);
+      b.options[b.options.length] = new Option(u, u);
+      i++;
+    }
+  }
+  b.selectedIndex = i > 1 ? 1 : 0;
+  el('cout').innerHTML = '&nbsp;';
+}
+function convert() {
+  var cat = el('cat').value, v = parseFloat(el('cv').value), f = el('cfrom').value, t = el('cto').value, r;
+  if (isNaN(v)) { el('cout').innerHTML = 'Enter a number'; return; }
+  if (cat === 'temp') {
+    var c = f === 'Celsius' ? v : (f === 'Fahrenheit' ? (v - 32) * 5 / 9 : v - 273.15);
+    r = t === 'Celsius' ? c : (t === 'Fahrenheit' ? c * 9 / 5 + 32 : c + 273.15);
+  } else {
+    r = v * units[cat][f] / units[cat][t];
+  }
+  r = Math.round(r * 10000) / 10000;
+  el('cout').innerHTML = v + ' ' + f + '<br>= ' + r + ' ' + t;
+}
+
+/* Timer */
+var tLeft = 0, tHandle = null, tRunning = false;
+function fmt(s) { var m = Math.floor(s / 60); return pad2(m) + ':' + pad2(s % 60); }
+function tStart() {
+  if (tRunning) { return; }
+  if (tLeft <= 0) { tLeft = Math.round(parseFloat(el('tmin').value || 0) * 60); }
+  if (tLeft <= 0) { return; }
+  tRunning = true;
+  el('tdisp').innerHTML = fmt(tLeft);
+  tHandle = setInterval(function () {
+    tLeft--;
+    if (tLeft <= 0) { tLeft = 0; tStop(); el('tdisp').innerHTML = 'TIME UP'; return; }
+    el('tdisp').innerHTML = fmt(tLeft);
+  }, 1000);
+}
+function tStop() { tRunning = false; clearInterval(tHandle); }
+function tReset() { tStop(); tLeft = 0; el('tdisp').innerHTML = '00:00'; }
+
+/* Stopwatch */
+var sSecs = 0, sHandle = null, sRunning = false;
+function sStart() {
+  if (sRunning) { return; }
+  sRunning = true;
+  sHandle = setInterval(function () { sSecs++; el('sdisp').innerHTML = fmt(sSecs); }, 1000);
+}
+function sStop() { sRunning = false; clearInterval(sHandle); }
+function sReset() { sStop(); sSecs = 0; el('sdisp').innerHTML = '00:00'; }
+
+/* Notes (localStorage, guarded) */
+function loadNote() {
+  try { el('pad').value = window.localStorage.getItem('kindletools-note') || ''; }
+  catch (e) { el('nstat').innerHTML = 'Saving is not available in this browser.'; }
+}
+function saveNote() {
+  try { window.localStorage.setItem('kindletools-note', el('pad').value); el('nstat').innerHTML = 'Saved.'; }
+  catch (e) { el('nstat').innerHTML = 'Could not save. Saving is not available here.'; }
+}
+function clearNote() {
+  el('pad').value = '';
+  try { window.localStorage.removeItem('kindletools-note'); } catch (e) {}
+  el('nstat').innerHTML = 'Erased.';
+}
+
+/* Tip split */
+function tipCalc() {
+  var b = parseFloat(el('bill').value), p = parseFloat(el('pct').value), n = parseInt(el('ppl').value, 10);
+  if (isNaN(b) || isNaN(p) || isNaN(n) || n < 1) { el('tout').innerHTML = 'Fill in all three fields'; return; }
+  var tip = b * p / 100, total = b + tip;
+  el('tout').innerHTML = 'Tip: ' + tip.toFixed(2) + '<br>Total: ' + total.toFixed(2) + '<br>Each: ' + (total / n).toFixed(2);
+}
+
+/* Text maker */
+function txtCount() {
+  var t = el('txt-body').value, w = t.replace(/^\s+|\s+$/g, '');
+  var words = w === '' ? 0 : w.split(/\s+/).length;
+  el('tcount').innerHTML = words + ' words, ' + t.length + ' characters';
+}
+function txtName() {
+  var n = (el('fname').value || '').replace(/\.txt$/i, '').replace(/[^\w\- ]/g, '');
+  return (n === '' ? 'note' : n) + '.txt';
+}
+function dlTxt() {
+  var text = el('txt-body').value;
+  if (text === '') { el('tstat').innerHTML = 'Write something first.'; return; }
+  try {
+    var blob = new Blob([text], { type: 'text/plain' });
+    var url = (window.URL || window.webkitURL).createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = txtName();
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    el('tstat').innerHTML = 'Download started: ' + txtName() + '. If nothing happened, use Open as plain text.';
+  } catch (e) {
+    el('tstat').innerHTML = 'Downloads are not supported here. Using plain text view instead.';
+    openTxt();
+  }
+}
+function openTxt() {
+  window.location.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(el('txt-body').value);
+}
+function txtClear() { el('txt-body').value = ''; txtCount(); el('tstat').innerHTML = 'Cleared.'; }
+
+/* To-do */
+function todoGet() {
+  try { return JSON.parse(window.localStorage.getItem('kindletools-todo') || '[]'); } catch (e) { return []; }
+}
+function todoSet(list) { try { window.localStorage.setItem('kindletools-todo', JSON.stringify(list)); } catch (e) {} }
+var todoMem = null;
+function todoList() { if (todoMem === null) { todoMem = todoGet(); } return todoMem; }
+function todoDraw() {
+  var box = el('tlist'), list = todoList();
+  box.innerHTML = '';
+  if (list.length === 0) { box.innerHTML = '<p>No tasks yet.</p>'; return; }
+  for (var i = 0; i < list.length; i++) {
+    var b = document.createElement('button');
+    b.style.cssText = 'display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:normal;';
+    b.appendChild(document.createTextNode((list[i].d ? '[x] ' : '[  ] ') + list[i].t));
+    if (list[i].d) { b.style.textDecoration = 'line-through'; }
+    b.setAttribute('data-i', i);
+    b.onclick = function () { todoToggle(parseInt(this.getAttribute('data-i'), 10)); };
+    box.appendChild(b);
+  }
+}
+function todoAdd() {
+  var v = el('titem').value.replace(/^\s+|\s+$/g, '');
+  if (v === '') { return; }
+  todoList().push({ t: v, d: false });
+  el('titem').value = '';
+  todoSet(todoMem); todoDraw();
+}
+function todoToggle(i) { todoList()[i].d = !todoList()[i].d; todoSet(todoMem); todoDraw(); }
+function todoClean() {
+  var keep = [], list = todoList();
+  for (var i = 0; i < list.length; i++) { if (!list[i].d) { keep.push(list[i]); } }
+  todoMem = keep; todoSet(todoMem); todoDraw();
+}
+
+/* Dice and coin */
+function rollDice() {
+  var n = parseInt(el('dn').value, 10), s = parseInt(el('ds').value, 10), sum = 0, out = [];
+  if (isNaN(n) || n < 1) { n = 1; }
+  if (n > 10) { n = 10; }
+  for (var i = 0; i < n; i++) { var r = Math.floor(Math.random() * s) + 1; out.push(r); sum += r; }
+  el('dout').innerHTML = out.join(' + ') + '<br>Total: ' + sum;
+}
+function flipCoin() { el('dout').innerHTML = Math.random() < 0.5 ? 'Heads' : 'Tails'; }
+
+/* Percent */
+function pnums() {
+  var a = parseFloat(el('pa').value), b = parseFloat(el('pb').value);
+  if (isNaN(a) || isNaN(b)) { el('pout').innerHTML = 'Fill in both numbers'; return null; }
+  return [a, b];
+}
+function rnd(x) { return Math.round(x * 10000) / 10000; }
+function pctOf() { var n = pnums(); if (n) { el('pout').innerHTML = n[0] + '% of ' + n[1] + '<br>= ' + rnd(n[0] * n[1] / 100); } }
+function pctIs() {
+  var n = pnums(); if (!n) { return; }
+  if (n[1] === 0) { el('pout').innerHTML = 'B cannot be 0'; return; }
+  el('pout').innerHTML = n[0] + ' is ' + rnd(n[0] / n[1] * 100) + '% of ' + n[1];
+}
+function pctChg() {
+  var n = pnums(); if (!n) { return; }
+  if (n[0] === 0) { el('pout').innerHTML = 'A cannot be 0'; return; }
+  var c = rnd((n[1] - n[0]) / Math.abs(n[0]) * 100);
+  el('pout').innerHTML = (c >= 0 ? 'Up ' : 'Down ') + Math.abs(c) + '%';
+}
+
+/* Dates */
+function parseD(s) {
+  var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s.replace(/^\s+|\s+$/g, ''));
+  if (!m) { return null; }
+  var d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), 12, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+function dateToday() { var d = new Date(); el('d1').value = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function dateDiff() {
+  var a = parseD(el('d1').value), b = parseD(el('d2').value);
+  if (!a || !b) { el('dout2').innerHTML = 'Use the format YYYY-MM-DD'; return; }
+  var n = Math.round((b.getTime() - a.getTime()) / 86400000), abs = Math.abs(n);
+  var txt = abs + ' day' + (abs === 1 ? '' : 's') + (n < 0 ? ' earlier' : '');
+  if (abs >= 7) { txt += '<br>' + Math.floor(abs / 7) + ' weeks and ' + (abs % 7) + ' days'; }
+  el('dout2').innerHTML = txt;
+}
+
+/* Passwords */
+function makePw() {
+  var len = parseInt(el('plen').value, 10);
+  if (isNaN(len) || len < 6) { len = 6; }
+  if (len > 64) { len = 64; }
+  var set = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  if (el('psym').value === '1') { set += '!@#$%^&*-_=+?'; }
+  var out = '', buf = null;
+  try {
+    if (window.crypto && window.crypto.getRandomValues) { buf = new Uint32Array(len); window.crypto.getRandomValues(buf); }
+  } catch (e) { buf = null; }
+  for (var i = 0; i < len; i++) {
+    var r = buf ? buf[i] % set.length : Math.floor(Math.random() * set.length);
+    out += set.charAt(r);
+  }
+  el('pwout').innerHTML = out.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
+fillUnits();
+show('clock');
+</script>
+</body>
+</html>
