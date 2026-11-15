@@ -53,6 +53,10 @@ textarea { height: 260px; }
 <td><button id="m-pct" onclick="show('pct')">Percent</button></td>
 <td><button id="m-date" onclick="show('date')">Dates</button></td>
 <td><button id="m-pw" onclick="show('pw')">Passwords</button></td>
+</tr><tr>
+<td><button id="m-wx" onclick="show('wx')">Weather</button></td>
+<td><button id="m-cd" onclick="show('cd')">Countdown</button></td>
+<td><button id="m-bm" onclick="show('bm')">Bookmarks</button></td>
 </tr></table>
 
 <!-- CLOCK -->
@@ -211,10 +215,42 @@ textarea { height: 260px; }
 <div class="note">Made in your browser and never sent anywhere.</div>
 </div>
 
+<!-- WEATHER -->
+<div class="tool" id="wx">
+<h2>Weather</h2>
+<input type="text" id="wcity" placeholder="City name">
+<div class="row">
+<button onclick="wxSearch()">Get weather</button>
+<button id="wunit" onclick="wxUnit()">Showing: Celsius</button>
+</div>
+<div id="wout"><p>Enter a city to see the forecast.</p></div>
+<div class="note">Data from Open-Meteo. Needs an internet connection. Your last city is remembered.</div>
+</div>
+
+<!-- COUNTDOWN -->
+<div class="tool" id="cd">
+<h2>Countdown</h2>
+<input type="text" id="cdname" placeholder="Event name">
+<input type="text" id="cddate" placeholder="Date: YYYY-MM-DD">
+<button onclick="cdAdd()">Save countdown</button>
+<div id="cdlist" style="margin-top:10px"></div>
+<div class="note">Saved in this browser. Dates are typed year first, for example 2026-12-25.</div>
+</div>
+
+<!-- BOOKMARKS -->
+<div class="tool" id="bm">
+<h2>Bookmarks</h2>
+<input type="text" id="bmname" placeholder="Name">
+<input type="text" id="bmurl" placeholder="Web address">
+<button onclick="bmAdd()">Save bookmark</button>
+<div id="bmlist" style="margin-top:10px"></div>
+<div class="note">Tap a name to open it. Saves typing on the Kindle keyboard.</div>
+</div>
+
 <script>
 /* ES5 only: Kindle's browser is an old WebKit */
 var current = '';
-var tools = ['clock', 'calc', 'conv', 'timer', 'notes', 'tip', 'txt', 'todo', 'dice', 'pct', 'date', 'pw'];
+var tools = ['clock', 'calc', 'conv', 'timer', 'notes', 'tip', 'txt', 'todo', 'dice', 'pct', 'date', 'pw', 'wx', 'cd', 'bm'];
 
 function el(id) { return document.getElementById(id); }
 function pad2(n) { return (n < 10 ? '0' : '') + n; }
@@ -228,6 +264,9 @@ function show(name) {
   if (name === 'clock') { tickClock(); }
   if (name === 'notes') { loadNote(); }
   if (name === 'todo') { todoDraw(); }
+  if (name === 'wx') { wxInit(); }
+  if (name === 'cd') { cdDraw(); }
+  if (name === 'bm') { bmDraw(); }
 }
 
 /* Clock */
@@ -474,6 +513,169 @@ function makePw() {
     out += set.charAt(r);
   }
   el('pwout').innerHTML = out.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
+/* Weather (Open-Meteo: free, no key, allows browser requests) */
+var wxF = false, wxPlace = null, wxLoaded = false;
+var wxCodes = {
+  0: 'Clear sky', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Fog', 48: 'Freezing fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+  56: 'Freezing drizzle', 57: 'Freezing drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',
+  66: 'Freezing rain', 67: 'Freezing rain', 71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
+  80: 'Light showers', 81: 'Showers', 82: 'Heavy showers', 85: 'Snow showers', 86: 'Heavy snow showers',
+  95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with hail'
+};
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function wxMsg(t) { el('wout').innerHTML = '<p>' + esc(t) + '</p>'; }
+function getJSON(url, ok, fail) {
+  var x;
+  try { x = new XMLHttpRequest(); } catch (e) { fail(); return; }
+  var done = false;
+  var timer = setTimeout(function () { if (!done) { done = true; try { x.abort(); } catch (e) {} fail(); } }, 15000);
+  x.onreadystatechange = function () {
+    if (x.readyState !== 4 || done) { return; }
+    done = true; clearTimeout(timer);
+    if (x.status === 200) {
+      try { ok(JSON.parse(x.responseText)); } catch (e) { fail(); }
+    } else { fail(); }
+  };
+  try { x.open('GET', url, true); x.send(null); } catch (e) { done = true; clearTimeout(timer); fail(); }
+}
+function wxInit() {
+  if (wxLoaded) { return; }
+  wxLoaded = true;
+  try {
+    var saved = window.localStorage.getItem('kindletools-wx');
+    if (saved) { wxPlace = JSON.parse(saved); el('wcity').value = wxPlace.name; wxFetch(); }
+  } catch (e) {}
+}
+function wxUnit() {
+  wxF = !wxF;
+  el('wunit').innerHTML = 'Showing: ' + (wxF ? 'Fahrenheit' : 'Celsius');
+  if (wxPlace) { wxFetch(); }
+}
+function wxSearch() {
+  var q = el('wcity').value.replace(/^\s+|\s+$/g, '');
+  if (q === '') { wxMsg('Type a city name first.'); return; }
+  wxMsg('Finding ' + q + '...');
+  getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=' + encodeURIComponent(q),
+    function (d) {
+      if (!d.results || !d.results.length) { wxMsg('No place found called "' + q + '". Try a nearby city.'); return; }
+      var r = d.results[0];
+      wxPlace = { name: r.name + (r.admin1 ? ', ' + r.admin1 : '') + (r.country ? ', ' + r.country : ''), lat: r.latitude, lon: r.longitude };
+      try { window.localStorage.setItem('kindletools-wx', JSON.stringify(wxPlace)); } catch (e) {}
+      wxFetch();
+    },
+    function () { wxMsg('Could not reach the weather service. Check your connection and try again.'); });
+}
+function wxFetch() {
+  wxMsg('Loading weather for ' + wxPlace.name + '...');
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + wxPlace.lat + '&longitude=' + wxPlace.lon +
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code' +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+    '&timezone=auto&forecast_days=5' +
+    (wxF ? '&temperature_unit=fahrenheit&wind_speed_unit=mph' : '&wind_speed_unit=kmh');
+  getJSON(url, wxDraw, function () { wxMsg('Could not load the forecast. Check your connection and try again.'); });
+}
+function wxDraw(d) {
+  var c = d.current, dy = d.daily, u = wxF ? 'F' : 'C', w = wxF ? 'mph' : 'km/h';
+  var h = '<div class="big" style="font-size:30px">' + esc(wxPlace.name) + '</div>';
+  h += '<div class="big">' + Math.round(c.temperature_2m) + '&deg;' + u + '</div>';
+  h += '<p style="font-size:26px;text-align:center;margin-top:0">' + esc(wxCodes[c.weather_code] || 'Unknown') + '</p>';
+  h += '<p>Feels like ' + Math.round(c.apparent_temperature) + '&deg;' + u + '<br>Humidity ' + c.relative_humidity_2m + '%<br>Wind ' + Math.round(c.wind_speed_10m) + ' ' + w + '</p>';
+  h += '<h2>Next 5 days</h2><table style="border:3px solid #000">';
+  for (var i = 0; i < dy.time.length; i++) {
+    var p = dy.time[i].split('-'), dt = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10), 12, 0, 0);
+    var label = i === 0 ? 'Today' : days[dt.getDay()].substring(0, 3) + ' ' + dt.getDate();
+    var rain = dy.precipitation_probability_max && dy.precipitation_probability_max[i] !== null ? ', rain ' + dy.precipitation_probability_max[i] + '%' : '';
+    h += '<tr style="border-top:2px solid #000"><td style="padding:8px;width:28%"><b>' + label + '</b></td><td style="padding:8px">' +
+      Math.round(dy.temperature_2m_max[i]) + '&deg; / ' + Math.round(dy.temperature_2m_min[i]) + '&deg;<br>' +
+      esc(wxCodes[dy.weather_code[i]] || '') + rain + '</td></tr>';
+  }
+  h += '</table>';
+  el('wout').innerHTML = h;
+}
+
+/* Shared saved-list helpers */
+function loadList(key) {
+  try { var v = JSON.parse(window.localStorage.getItem(key) || '[]'); return v instanceof Array ? v : []; } catch (e) { return []; }
+}
+function saveList(key, list) { try { window.localStorage.setItem(key, JSON.stringify(list)); } catch (e) {} }
+
+/* Countdown */
+var cdMem = null;
+function cdList() { if (cdMem === null) { cdMem = loadList('kindletools-cd'); } return cdMem; }
+function cdAdd() {
+  var n = el('cdname').value.replace(/^\s+|\s+$/g, ''), d = el('cddate').value.replace(/^\s+|\s+$/g, '');
+  if (n === '' || !parseD(d)) { el('cdlist').innerHTML = '<p>Enter a name and a date as YYYY-MM-DD.</p>'; return; }
+  cdList().push({ n: n, d: d });
+  saveList('kindletools-cd', cdMem);
+  el('cdname').value = ''; el('cddate').value = '';
+  cdDraw();
+}
+function cdRemove(i) { cdList().splice(i, 1); saveList('kindletools-cd', cdMem); cdDraw(); }
+function cdDraw() {
+  var box = el('cdlist'), list = cdList(), now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  box.innerHTML = '';
+  if (list.length === 0) { box.innerHTML = '<p>No countdowns yet.</p>'; return; }
+  for (var i = 0; i < list.length; i++) {
+    var t = parseD(list[i].d), n = t ? Math.round((t.getTime() - today.getTime()) / 86400000) : 0;
+    var msg = n === 0 ? 'Today' : (n > 0 ? n + ' day' + (n === 1 ? '' : 's') + ' left' : Math.abs(n) + ' day' + (n === -1 ? '' : 's') + ' ago');
+    var row = document.createElement('div');
+    row.style.cssText = 'border:3px solid #000;padding:10px;margin-bottom:8px;';
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:26px;font-weight:bold;';
+    title.appendChild(document.createTextNode(list[i].n));
+    var info = document.createElement('div');
+    info.appendChild(document.createTextNode(msg + ' (' + list[i].d + ')'));
+    var b = document.createElement('button');
+    b.style.cssText = 'margin-top:6px;padding:8px 14px;';
+    b.appendChild(document.createTextNode('Remove'));
+    b.setAttribute('data-i', i);
+    b.onclick = function () { cdRemove(parseInt(this.getAttribute('data-i'), 10)); };
+    row.appendChild(title); row.appendChild(info); row.appendChild(b);
+    box.appendChild(row);
+  }
+}
+
+/* Bookmarks */
+var bmMem = null;
+function bmList() { if (bmMem === null) { bmMem = loadList('kindletools-bm'); } return bmMem; }
+function bmAdd() {
+  var n = el('bmname').value.replace(/^\s+|\s+$/g, ''), u = el('bmurl').value.replace(/^\s+|\s+$/g, '');
+  if (u === '') { return; }
+  if (!/^https?:\/\//i.test(u)) { u = 'http://' + u; }
+  if (n === '') { n = u.replace(/^https?:\/\//i, ''); }
+  bmList().push({ n: n, u: u });
+  saveList('kindletools-bm', bmMem);
+  el('bmname').value = ''; el('bmurl').value = '';
+  bmDraw();
+}
+function bmRemove(i) { bmList().splice(i, 1); saveList('kindletools-bm', bmMem); bmDraw(); }
+function bmDraw() {
+  var box = el('bmlist'), list = bmList();
+  box.innerHTML = '';
+  if (list.length === 0) { box.innerHTML = '<p>No bookmarks yet.</p>'; return; }
+  var table = document.createElement('table');
+  for (var i = 0; i < list.length; i++) {
+    var tr = document.createElement('tr'), td1 = document.createElement('td'), td2 = document.createElement('td');
+    td1.style.cssText = 'padding:4px 6px 4px 0;';
+    td2.style.cssText = 'width:70px;padding:4px 0;';
+    var a = document.createElement('a');
+    a.href = list[i].u;
+    a.style.cssText = 'display:block;border:3px solid #000;padding:14px 8px;color:#000;text-decoration:none;font-weight:bold;';
+    a.appendChild(document.createTextNode(list[i].n));
+    var b = document.createElement('button');
+    b.style.cssText = 'width:100%;padding:14px 0;';
+    b.appendChild(document.createTextNode('X'));
+    b.setAttribute('data-i', i);
+    b.onclick = function () { bmRemove(parseInt(this.getAttribute('data-i'), 10)); };
+    td1.appendChild(a); td2.appendChild(b);
+    tr.appendChild(td1); tr.appendChild(td2);
+    table.appendChild(tr);
+  }
+  box.appendChild(table);
 }
 
 fillUnits();
